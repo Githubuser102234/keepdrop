@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Personal File Storage</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .gradient-bg {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6);
+        }
+
+        .icon-folder {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .icon-file {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div id="auth-container" class="w-full max-w-md p-8 bg-white rounded-xl shadow-lg transition-opacity duration-500 ease-in-out opacity-100">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">File Storage</h1>
+            <p class="text-gray-500 mt-2">Sign in or create an account</p>
+        </div>
+        <form id="auth-form" class="space-y-4">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                <input id="email" type="email" autocomplete="email" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <input id="password" type="password" autocomplete="current-password" required class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div>
+                <button type="submit" id="sign-in-btn" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white gradient-bg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Sign In
+                </button>
+            </div>
+            <div class="text-center text-sm">
+                <a href="#" id="toggle-auth" class="font-medium text-indigo-600 hover:text-indigo-500">
+                    Need an account? Sign up
+                </a>
+            </div>
+        </form>
+        <p id="error-message" class="mt-4 text-center text-sm text-red-600 hidden"></p>
+    </div>
+
+    <div id="app-container" class="hidden w-full max-w-4xl p-8 bg-white rounded-xl shadow-lg transition-opacity duration-500 ease-in-out opacity-0">
+        <header class="flex items-center justify-between pb-6 border-b border-gray-200 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">My Files</h1>
+            <button id="logout-btn" class="px-4 py-2 text-sm font-medium rounded-lg text-white gradient-bg hover:opacity-90">
+                Log Out
+            </button>
+        </header>
+
+        <div class="flex items-center space-x-4 mb-6">
+            <button id="new-folder-btn" class="px-4 py-2 text-sm font-medium rounded-lg text-white bg-blue-500 hover:bg-blue-600">
+                New Folder
+            </button>
+            <label for="file-upload" class="cursor-pointer px-4 py-2 text-sm font-medium rounded-lg text-white bg-green-500 hover:bg-green-600">
+                Upload File
+            </label>
+            <input type="file" id="file-upload" class="hidden">
+        </div>
+
+        <div id="file-list" class="space-y-4">
+            <!-- Files and folders will be rendered here -->
+            <div class="text-center text-gray-500 p-8">Loading files...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.44.2/+esm';
+
+        // --- Supabase Configuration ---
+        // REPLACE WITH YOUR ACTUAL SUPABASE URL AND ANON KEY
+        const SUPABASE_URL = 'https://qkczawqkaujtihvrfjwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrY3phd3FrYXVqdGlodnJmand0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDE2MTksImV4cCI6MjA3MzM3NzYxOX0.pxFv0eZ0NdzqUkj2oM0CPowIfxagY4f-_ZCOmWzJHu4';
+        
+        // Ensure that the placeholders have been replaced
+        if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+            console.error("Please replace the Supabase URL and key placeholders in the script.");
+            alert("Please replace the Supabase URL and key placeholders in the script.");
+        }
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- DOM Elements ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authForm = document.getElementById('auth-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const toggleAuthBtn = document.getElementById('toggle-auth');
+        const errorMessage = document.getElementById('error-message');
+        const logoutBtn = document.getElementById('logout-btn');
+        const newFolderBtn = document.getElementById('new-folder-btn');
+        const fileUploadInput = document.getElementById('file-upload');
+        const fileList = document.getElementById('file-list');
+
+        let isSignInMode = true;
+        let currentParentId = null;
+
+        // --- Authentication Functions ---
+        async function handleAuth(event) {
+            event.preventDefault();
+            errorMessage.textContent = '';
+            errorMessage.classList.add('hidden');
+
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            try {
+                if (isSignInMode) {
+                    const { error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    alert('Check your email to confirm your account!');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function toggleAuthMode() {
+            isSignInMode = !isSignInMode;
+            if (isSignInMode) {
+                toggleAuthBtn.textContent = 'Need an account? Sign up';
+                document.getElementById('sign-in-btn').textContent = 'Sign In';
+            } else {
+                toggleAuthBtn.textContent = 'Already have an account? Sign in';
+                document.getElementById('sign-in-btn').textContent = 'Sign Up';
+            }
+        }
+
+        async function signOut() {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                showError(error.message);
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        // --- File Manager Functions ---
+        async function getFilesAndFolders(parentId) {
+            fileList.innerHTML = '<div class="text-center text-gray-500 p-8">Loading files...</div>';
+            currentParentId = parentId;
+
+            try {
+                let query = supabase
+                    .from('files')
+                    .select('*')
+                    .order('is_folder', { ascending: false })
+                    .order('name', { ascending: true });
+
+                if (parentId) {
+                    query = query.eq('parent_id', parentId);
+                } else {
+                    query = query.is('parent_id', null);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+
+                renderFiles(data);
+            } catch (error) {
+                showError(error.message);
+                fileList.innerHTML = '<div class="text-center text-red-600 p-8">Failed to load files.</div>';
+            }
+        }
+
+        function renderFiles(items) {
+            fileList.innerHTML = '';
+            if (currentParentId) {
+                const backBtn = document.createElement('div');
+                backBtn.className = 'flex items-center space-x-2 p-4 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 transition-colors';
+                backBtn.innerHTML = `
+                    <svg class="icon-folder text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                    <span>...</span>
+                `;
+                backBtn.addEventListener('click', async () => {
+                    const { data, error } = await supabase.from('files').select('parent_id').eq('id', currentParentId).single();
+                    if (error) {
+                        showError(error.message);
+                    } else {
+                        getFilesAndFolders(data.parent_id);
+                    }
+                });
+                fileList.appendChild(backBtn);
+            }
+
+            if (items.length === 0) {
+                fileList.innerHTML += '<div class="text-center text-gray-500 p-8">No files or folders here.</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow';
+                itemDiv.innerHTML = `
+                    <svg class="icon-${item.is_folder ? 'folder' : 'file'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                        ${item.is_folder
+                            ? '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H10l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/>'
+                            : '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>'
+                        }
+                    </svg>
+                    <span class="flex-grow text-gray-800">${item.name}</span>
+                `;
+                itemDiv.addEventListener('click', () => {
+                    if (item.is_folder) {
+                        getFilesAndFolders(item.id);
+                    } else {
+                        // Placeholder for file download logic
+                        alert(`Download placeholder for: ${item.name}`);
+                    }
+                });
+                fileList.appendChild(itemDiv);
+            });
+        }
+
+        async function createFolder() {
+            const folderName = prompt("Enter folder name:");
+            if (!folderName) return;
+
+            try {
+                const { error } = await supabase.from('files').insert({
+                    name: folderName,
+                    is_folder: true,
+                    parent_id: currentParentId,
+                    user_id: supabase.auth.currentUser.id
+                });
+                if (error) throw error;
+                getFilesAndFolders(currentParentId); // Refresh list
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        async function uploadFile() {
+            const file = fileUploadInput.files[0];
+            if (!file) return;
+            const user = supabase.auth.currentUser;
+            const filePath = `${user.id}/${currentParentId ? currentParentId + '/' : ''}${file.name}`;
+
+            try {
+                // Upload to Supabase Storage
+                const { error: uploadError } = await supabase.storage
+                    .from('files') // Create a bucket named 'files' in Supabase Storage
+                    .upload(filePath, file);
+
+                if (uploadError) throw uploadError;
+
+                // Insert metadata into the database
+                const { error: dbError } = await supabase.from('files').insert({
+                    name: file.name,
+                    is_folder: false,
+                    parent_id: currentParentId,
+                    user_id: user.id,
+                    path: filePath
+                });
+
+                if (dbError) throw dbError;
+                getFilesAndFolders(currentParentId); // Refresh list
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // --- Event Listeners and Initial State ---
+        authForm.addEventListener('submit', handleAuth);
+        toggleAuthBtn.addEventListener('click', toggleAuthMode);
+        logoutBtn.addEventListener('click', signOut);
+        newFolderBtn.addEventListener('click', createFolder);
+        fileUploadInput.addEventListener('change', uploadFile);
+
+        // Listen for authentication state changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                authContainer.classList.add('opacity-0', 'pointer-events-none');
+                appContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    authContainer.classList.add('hidden');
+                    appContainer.classList.remove('opacity-0');
+                }, 500);
+                getFilesAndFolders(null); // Load root directory
+            } else {
+                appContainer.classList.add('opacity-0', 'pointer-events-none');
+                authContainer.classList.remove('hidden');
+                setTimeout(() => {
+                    appContainer.classList.add('hidden');
+                    authContainer.classList.remove('opacity-0');
+                }, 500);
+            }
+        });
+    </script>
+</body>
+
+</html>
+
