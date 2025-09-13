@@ -16,26 +16,6 @@
         .gradient-bg {
             background-image: linear-gradient(to right, #6366f1, #8b5cf6);
         }
-
-        .icon-folder {
-            width: 24px;
-            height: 24px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        .icon-file {
-            width: 24px;
-            height: 24px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
     </style>
 </head>
 
@@ -98,8 +78,8 @@
 
         // --- Supabase Configuration ---
         // REPLACE WITH YOUR ACTUAL SUPABASE URL AND ANON KEY
-        const SUPABASE_URL = 'https://qkczawqkaujtihvrfjwt.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFrY3phd3FrYXVqdGlodnJmand0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4MDE2MTksImV4cCI6MjA3MzM3NzYxOX0.pxFv0eZ0NdzqUkj2oM0CPowIfxagY4f-_ZCOmWzJHu4';
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
         
         // Ensure that the placeholders have been replaced
         if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
@@ -205,8 +185,8 @@
                 const backBtn = document.createElement('div');
                 backBtn.className = 'flex items-center space-x-2 p-4 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 transition-colors';
                 backBtn.innerHTML = `
-                    <svg class="icon-folder text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <path d="M15 18l-6-6 6-6"/>
+                    <svg class="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                     <span>...</span>
                 `;
@@ -228,14 +208,18 @@
 
             items.forEach(item => {
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow';
+                itemDiv.className = 'flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer';
+                
+                const iconSVG = item.is_folder
+                    ? `<svg class="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                       </svg>`
+                    : `<svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                       </svg>`;
+
                 itemDiv.innerHTML = `
-                    <svg class="icon-${item.is_folder ? 'folder' : 'file'}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        ${item.is_folder
-                            ? '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H10l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/>'
-                            : '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>'
-                        }
-                    </svg>
+                    ${iconSVG}
                     <span class="flex-grow text-gray-800">${item.name}</span>
                 `;
                 itemDiv.addEventListener('click', () => {
@@ -243,7 +227,7 @@
                         getFilesAndFolders(item.id);
                     } else {
                         // Placeholder for file download logic
-                        alert(`Download placeholder for: ${item.name}`);
+                        alert(`Downloading: ${item.name}`);
                     }
                 });
                 fileList.appendChild(itemDiv);
@@ -253,13 +237,19 @@
         async function createFolder() {
             const folderName = prompt("Enter folder name:");
             if (!folderName) return;
+            const user = supabase.auth.currentUser;
+
+            if (!user) {
+                showError("Please sign in to create a folder.");
+                return;
+            }
 
             try {
                 const { error } = await supabase.from('files').insert({
                     name: folderName,
                     is_folder: true,
                     parent_id: currentParentId,
-                    user_id: supabase.auth.currentUser.id
+                    user_id: user.id
                 });
                 if (error) throw error;
                 getFilesAndFolders(currentParentId); // Refresh list
@@ -272,13 +262,20 @@
             const file = fileUploadInput.files[0];
             if (!file) return;
             const user = supabase.auth.currentUser;
-            const filePath = `${user.id}/${currentParentId ? currentParentId + '/' : ''}${file.name}`;
+
+            if (!user) {
+                showError("Please sign in to upload a file.");
+                return;
+            }
+
+            // Construct the path: 'user_id/parent_folder_id/file_name' or 'user_id/file_name'
+            const storagePath = `${user.id}${currentParentId ? '/' + currentParentId : ''}/${file.name}`;
 
             try {
                 // Upload to Supabase Storage
                 const { error: uploadError } = await supabase.storage
-                    .from('files') // Create a bucket named 'files' in Supabase Storage
-                    .upload(filePath, file);
+                    .from('files') // Make sure you have a bucket named 'files' in Supabase Storage
+                    .upload(storagePath, file);
 
                 if (uploadError) throw uploadError;
 
@@ -288,7 +285,7 @@
                     is_folder: false,
                     parent_id: currentParentId,
                     user_id: user.id,
-                    path: filePath
+                    path: storagePath
                 });
 
                 if (dbError) throw dbError;
@@ -308,20 +305,20 @@
         // Listen for authentication state changes
         supabase.auth.onAuthStateChange((event, session) => {
             if (session) {
-                authContainer.classList.add('opacity-0', 'pointer-events-none');
+                // User is authenticated, show the app
+                authContainer.classList.add('hidden', 'opacity-0');
                 appContainer.classList.remove('hidden');
                 setTimeout(() => {
-                    authContainer.classList.add('hidden');
                     appContainer.classList.remove('opacity-0');
-                }, 500);
+                }, 10);
                 getFilesAndFolders(null); // Load root directory
             } else {
-                appContainer.classList.add('opacity-0', 'pointer-events-none');
+                // User is not authenticated, show the auth screen
+                appContainer.classList.add('hidden', 'opacity-0');
                 authContainer.classList.remove('hidden');
                 setTimeout(() => {
-                    appContainer.classList.add('hidden');
                     authContainer.classList.remove('opacity-0');
-                }, 500);
+                }, 10);
             }
         });
     </script>
